@@ -1,0 +1,1686 @@
+<!DOCTYPE html>
+<html lang="el">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Excel AI Mapper — Technical Report</title>
+<style>
+  :root {
+    --bg: #0a0e1a;
+    --bg2: #111827;
+    --bg3: #1f2937;
+    --border: #374151;
+    --text: #f9fafb;
+    --muted: #9ca3af;
+    --dim: #6b7280;
+    --blue: #3b82f6;
+    --purple: #8b5cf6;
+    --green: #10b981;
+    --cyan: #06b6d4;
+    --amber: #f59e0b;
+    --red: #ef4444;
+    --pink: #ec4899;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+    line-height: 1.6;
+    overflow-x: hidden;
+  }
+
+  /* ── Scrollbar ── */
+  ::-webkit-scrollbar { width: 6px; }
+  ::-webkit-scrollbar-track { background: var(--bg); }
+  ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+
+  /* ── HERO ── */
+  .hero {
+    position: relative;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    overflow: hidden;
+    padding: 2rem;
+  }
+
+  .hero-bg {
+    position: absolute;
+    inset: 0;
+    background:
+      radial-gradient(ellipse 80% 50% at 20% 40%, rgba(139,92,246,0.15) 0%, transparent 60%),
+      radial-gradient(ellipse 60% 40% at 80% 60%, rgba(59,130,246,0.12) 0%, transparent 60%),
+      radial-gradient(ellipse 50% 30% at 50% 90%, rgba(16,185,129,0.08) 0%, transparent 60%);
+    animation: heroshift 12s ease-in-out infinite alternate;
+  }
+  @keyframes heroshift {
+    0%   { filter: hue-rotate(0deg); }
+    100% { filter: hue-rotate(30deg); }
+  }
+
+  /* Animated grid */
+  .hero-grid {
+    position: absolute;
+    inset: 0;
+    background-image:
+      linear-gradient(rgba(255,255,255,0.03) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(255,255,255,0.03) 1px, transparent 1px);
+    background-size: 50px 50px;
+    animation: gridfloat 20s linear infinite;
+  }
+  @keyframes gridfloat {
+    0%   { transform: translateY(0); }
+    100% { transform: translateY(50px); }
+  }
+
+  .hero-content { position: relative; z-index: 1; }
+
+  .hero-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    background: rgba(139,92,246,0.15);
+    border: 1px solid rgba(139,92,246,0.4);
+    border-radius: 100px;
+    padding: 6px 16px;
+    font-size: 0.75rem;
+    color: #c4b5fd;
+    margin-bottom: 2rem;
+    animation: fadein 1s ease forwards;
+  }
+  .badge-dot {
+    width: 8px; height: 8px;
+    background: var(--purple);
+    border-radius: 50%;
+    animation: pulse 2s ease infinite;
+  }
+  @keyframes pulse {
+    0%, 100% { opacity: 1; transform: scale(1); }
+    50%       { opacity: 0.5; transform: scale(0.8); }
+  }
+
+  .hero h1 {
+    font-size: clamp(2.5rem, 7vw, 5rem);
+    font-weight: 800;
+    letter-spacing: -0.03em;
+    line-height: 1.1;
+    background: linear-gradient(135deg, #fff 0%, #a78bfa 40%, #60a5fa 70%, #34d399 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    animation: fadein 1.2s ease forwards;
+  }
+
+  .hero-sub {
+    font-size: clamp(1rem, 2.5vw, 1.3rem);
+    color: var(--muted);
+    max-width: 600px;
+    margin: 1.5rem auto 0;
+    animation: fadein 1.4s ease forwards;
+  }
+
+  @keyframes fadein {
+    from { opacity: 0; transform: translateY(20px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+
+  .hero-stats {
+    display: flex;
+    gap: 2rem;
+    margin-top: 3rem;
+    flex-wrap: wrap;
+    justify-content: center;
+    animation: fadein 1.6s ease forwards;
+  }
+  .stat {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+  }
+  .stat-num {
+    font-size: 2rem;
+    font-weight: 700;
+    background: linear-gradient(135deg, var(--cyan), var(--blue));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+  .stat-label { font-size: 0.75rem; color: var(--dim); text-transform: uppercase; letter-spacing: 0.1em; }
+
+  .scroll-hint {
+    position: absolute;
+    bottom: 2rem;
+    left: 50%;
+    transform: translateX(-50%);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+    color: var(--dim);
+    font-size: 0.75rem;
+    animation: bounce 2s ease infinite;
+  }
+  @keyframes bounce {
+    0%, 100% { transform: translateX(-50%) translateY(0); }
+    50%       { transform: translateX(-50%) translateY(8px); }
+  }
+  .scroll-arrow { width: 20px; height: 20px; border-right: 2px solid var(--dim); border-bottom: 2px solid var(--dim); transform: rotate(45deg); margin-top: -8px; }
+
+  /* ── LAYOUT ── */
+  .container {
+    max-width: 1100px;
+    margin: 0 auto;
+    padding: 0 2rem;
+  }
+
+  section {
+    padding: 5rem 0;
+    border-top: 1px solid var(--border);
+  }
+
+  .section-label {
+    font-size: 0.7rem;
+    text-transform: uppercase;
+    letter-spacing: 0.15em;
+    color: var(--purple);
+    font-weight: 600;
+    margin-bottom: 0.75rem;
+  }
+
+  h2 {
+    font-size: clamp(1.8rem, 4vw, 2.5rem);
+    font-weight: 700;
+    letter-spacing: -0.02em;
+    margin-bottom: 1rem;
+  }
+
+  .section-desc {
+    color: var(--muted);
+    font-size: 1.05rem;
+    max-width: 700px;
+    margin-bottom: 3rem;
+  }
+
+  /* ── ARCHITECTURE DIAGRAM ── */
+  .arch-diagram {
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    padding: 2rem;
+    overflow-x: auto;
+    position: relative;
+  }
+
+  .arch-layers {
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+    min-width: 700px;
+  }
+
+  .arch-layer {
+    display: flex;
+    align-items: stretch;
+    gap: 1rem;
+  }
+
+  .arch-layer-label {
+    writing-mode: vertical-rl;
+    text-orientation: mixed;
+    transform: rotate(180deg);
+    font-size: 0.65rem;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: var(--dim);
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0 4px;
+    min-width: 24px;
+  }
+
+  .arch-boxes {
+    display: flex;
+    gap: 0.75rem;
+    flex: 1;
+    flex-wrap: wrap;
+  }
+
+  .arch-box {
+    flex: 1;
+    min-width: 130px;
+    background: var(--bg3);
+    border-radius: 12px;
+    padding: 1rem;
+    border: 1px solid var(--border);
+    transition: all 0.3s ease;
+    cursor: default;
+    position: relative;
+    overflow: hidden;
+  }
+  .arch-box::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    opacity: 0;
+    transition: opacity 0.3s;
+    border-radius: 12px;
+  }
+  .arch-box:hover { transform: translateY(-3px); box-shadow: 0 8px 30px rgba(0,0,0,0.4); }
+  .arch-box:hover::before { opacity: 1; }
+
+  .arch-box.blue   { border-color: rgba(59,130,246,0.3); }
+  .arch-box.blue::before   { background: linear-gradient(135deg, rgba(59,130,246,0.07), transparent); }
+  .arch-box.purple { border-color: rgba(139,92,246,0.3); }
+  .arch-box.purple::before { background: linear-gradient(135deg, rgba(139,92,246,0.07), transparent); }
+  .arch-box.green  { border-color: rgba(16,185,129,0.3); }
+  .arch-box.green::before  { background: linear-gradient(135deg, rgba(16,185,129,0.07), transparent); }
+  .arch-box.cyan   { border-color: rgba(6,182,212,0.3); }
+  .arch-box.cyan::before   { background: linear-gradient(135deg, rgba(6,182,212,0.07), transparent); }
+  .arch-box.amber  { border-color: rgba(245,158,11,0.3); }
+  .arch-box.amber::before  { background: linear-gradient(135deg, rgba(245,158,11,0.07), transparent); }
+
+  .arch-box-icon { font-size: 1.5rem; margin-bottom: 0.5rem; }
+  .arch-box-name { font-size: 0.8rem; font-weight: 600; margin-bottom: 0.25rem; }
+  .arch-box-tech { font-size: 0.65rem; color: var(--dim); }
+
+  .arch-arrow {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0.25rem 0;
+  }
+  .arch-arrow-line {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+  }
+  .arch-arrow-vert {
+    width: 2px;
+    height: 30px;
+    background: linear-gradient(to bottom, var(--purple), var(--blue));
+    position: relative;
+    overflow: hidden;
+  }
+  .arch-arrow-vert::after {
+    content: '';
+    position: absolute;
+    top: -100%;
+    left: 0;
+    right: 0;
+    height: 100%;
+    background: linear-gradient(to bottom, transparent, rgba(255,255,255,0.5), transparent);
+    animation: flowdown 2s linear infinite;
+  }
+  @keyframes flowdown {
+    0%   { top: -100%; }
+    100% { top: 100%; }
+  }
+  .arch-arrow-head {
+    width: 0; height: 0;
+    border-left: 6px solid transparent;
+    border-right: 6px solid transparent;
+    border-top: 8px solid var(--blue);
+  }
+
+  /* ── TECH STACK CARDS ── */
+  .tech-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+    gap: 1.5rem;
+  }
+
+  .tech-card {
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 1.75rem;
+    transition: all 0.3s ease;
+    position: relative;
+    overflow: hidden;
+    opacity: 0;
+    transform: translateY(30px);
+  }
+  .tech-card.visible {
+    animation: cardreveal 0.5s ease forwards;
+  }
+  @keyframes cardreveal {
+    to { opacity: 1; transform: translateY(0); }
+  }
+  .tech-card:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 12px 40px rgba(0,0,0,0.5);
+  }
+
+  .tc-header {
+    display: flex;
+    align-items: flex-start;
+    gap: 1rem;
+    margin-bottom: 1rem;
+  }
+  .tc-icon {
+    width: 44px; height: 44px;
+    border-radius: 12px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 1.25rem;
+    flex-shrink: 0;
+  }
+  .tc-title { font-size: 1rem; font-weight: 600; margin-bottom: 2px; }
+  .tc-version { font-size: 0.7rem; color: var(--dim); }
+
+  .tc-why {
+    font-size: 0.85rem;
+    color: var(--muted);
+    line-height: 1.6;
+    margin-bottom: 1rem;
+  }
+
+  .tc-tags {
+    display: flex;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+  }
+  .tag {
+    font-size: 0.65rem;
+    padding: 3px 10px;
+    border-radius: 100px;
+    font-weight: 500;
+    letter-spacing: 0.05em;
+  }
+  .tag-blue   { background: rgba(59,130,246,0.15); color: #93c5fd; border: 1px solid rgba(59,130,246,0.25); }
+  .tag-purple { background: rgba(139,92,246,0.15); color: #c4b5fd; border: 1px solid rgba(139,92,246,0.25); }
+  .tag-green  { background: rgba(16,185,129,0.15); color: #6ee7b7; border: 1px solid rgba(16,185,129,0.25); }
+  .tag-amber  { background: rgba(245,158,11,0.15); color: #fcd34d; border: 1px solid rgba(245,158,11,0.25); }
+  .tag-cyan   { background: rgba(6,182,212,0.15);  color: #67e8f9; border: 1px solid rgba(6,182,212,0.25); }
+  .tag-red    { background: rgba(239,68,68,0.15);  color: #fca5a5; border: 1px solid rgba(239,68,68,0.25); }
+
+  /* ── DATA FLOW ── */
+  .flow-wrap {
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    padding: 2.5rem;
+  }
+
+  .flow-steps {
+    display: flex;
+    align-items: flex-start;
+    gap: 0;
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+
+  .flow-step {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    max-width: 140px;
+    position: relative;
+  }
+
+  .flow-circle {
+    width: 64px; height: 64px;
+    border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 1.5rem;
+    margin-bottom: 0.75rem;
+    position: relative;
+    border: 2px solid transparent;
+    transition: all 0.3s;
+  }
+  .flow-circle::after {
+    content: '';
+    position: absolute;
+    inset: -4px;
+    border-radius: 50%;
+    border: 2px solid transparent;
+    animation: spin 3s linear infinite;
+  }
+
+  .flow-step:hover .flow-circle { transform: scale(1.1); }
+
+  .flow-step.s1 .flow-circle { background: rgba(16,185,129,0.15); border-color: rgba(16,185,129,0.4); }
+  .flow-step.s1 .flow-circle::after { border-top-color: var(--green); }
+  .flow-step.s2 .flow-circle { background: rgba(59,130,246,0.15); border-color: rgba(59,130,246,0.4); }
+  .flow-step.s2 .flow-circle::after { border-top-color: var(--blue); }
+  .flow-step.s3 .flow-circle { background: rgba(139,92,246,0.15); border-color: rgba(139,92,246,0.4); }
+  .flow-step.s3 .flow-circle::after { border-top-color: var(--purple); }
+  .flow-step.s4 .flow-circle { background: rgba(245,158,11,0.15); border-color: rgba(245,158,11,0.4); }
+  .flow-step.s4 .flow-circle::after { border-top-color: var(--amber); }
+  .flow-step.s5 .flow-circle { background: rgba(6,182,212,0.15); border-color: rgba(6,182,212,0.4); }
+  .flow-step.s5 .flow-circle::after { border-top-color: var(--cyan); }
+  .flow-step.s6 .flow-circle { background: rgba(236,72,153,0.15); border-color: rgba(236,72,153,0.4); }
+  .flow-step.s6 .flow-circle::after { border-top-color: var(--pink); }
+
+  @keyframes spin {
+    from { transform: rotate(0deg); }
+    to   { transform: rotate(360deg); }
+  }
+
+  .flow-title { font-size: 0.8rem; font-weight: 600; margin-bottom: 0.25rem; }
+  .flow-desc  { font-size: 0.7rem; color: var(--dim); line-height: 1.4; }
+
+  .flow-connector {
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    padding: 0 0.5rem;
+    margin-top: 1.5rem;
+  }
+  .flow-line {
+    width: 40px; height: 2px;
+    background: linear-gradient(90deg, var(--border), var(--purple), var(--border));
+    position: relative;
+    overflow: hidden;
+  }
+  .flow-line::after {
+    content: '';
+    position: absolute;
+    top: 0; left: -100%; right: 100%; bottom: 0;
+    background: linear-gradient(90deg, transparent, rgba(255,255,255,0.8), transparent);
+    animation: flowright 2s linear infinite;
+  }
+  @keyframes flowright {
+    0%   { left: -100%; right: 100%; }
+    100% { left: 100%; right: -100%; }
+  }
+  .flow-arrow { width: 0; height: 0; border-top: 5px solid transparent; border-bottom: 5px solid transparent; border-left: 7px solid var(--purple); }
+
+  /* ── API ENDPOINTS ── */
+  .endpoints-list {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+  }
+
+  .endpoint {
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 1.5rem;
+    transition: all 0.3s;
+  }
+  .endpoint:hover {
+    border-color: rgba(139,92,246,0.4);
+    box-shadow: 0 0 0 1px rgba(139,92,246,0.1);
+  }
+
+  .ep-header {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    margin-bottom: 0.75rem;
+  }
+  .ep-method {
+    font-size: 0.7rem;
+    font-weight: 700;
+    padding: 4px 10px;
+    border-radius: 6px;
+    letter-spacing: 0.05em;
+    background: rgba(16,185,129,0.15);
+    color: #6ee7b7;
+    border: 1px solid rgba(16,185,129,0.3);
+  }
+  .ep-path {
+    font-family: 'Courier New', monospace;
+    font-size: 0.95rem;
+    font-weight: 600;
+    color: var(--cyan);
+  }
+  .ep-desc { font-size: 0.85rem; color: var(--muted); line-height: 1.6; }
+
+  .ep-detail {
+    margin-top: 0.75rem;
+    padding-top: 0.75rem;
+    border-top: 1px solid var(--border);
+    font-size: 0.8rem;
+    color: var(--dim);
+    display: flex;
+    gap: 1rem;
+    flex-wrap: wrap;
+  }
+  .ep-detail-item {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .ep-detail-dot { width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0; }
+
+  /* ── AI STRATEGY ── */
+  .ai-strategy {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: 1.5rem;
+  }
+
+  .ai-card {
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 1.75rem;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .ai-card-glow {
+    position: absolute;
+    top: 0; left: 0;
+    right: 0; height: 2px;
+    border-radius: 16px 16px 0 0;
+  }
+  .ai-card.openrouter .ai-card-glow { background: linear-gradient(90deg, var(--purple), var(--blue)); }
+  .ai-card.gemini     .ai-card-glow { background: linear-gradient(90deg, var(--blue), var(--cyan)); }
+  .ai-card.ollama     .ai-card-glow { background: linear-gradient(90deg, var(--green), var(--cyan)); }
+
+  .ai-card-icon { font-size: 2rem; margin-bottom: 0.75rem; }
+  .ai-card-name { font-size: 1.1rem; font-weight: 700; margin-bottom: 0.5rem; }
+  .ai-card-sub  { font-size: 0.8rem; color: var(--dim); margin-bottom: 1rem; }
+  .ai-card-desc { font-size: 0.85rem; color: var(--muted); line-height: 1.6; margin-bottom: 1rem; }
+
+  .model-list { display: flex; flex-direction: column; gap: 0.4rem; }
+  .model-item {
+    display: flex; align-items: center; gap: 8px;
+    font-size: 0.72rem; font-family: 'Courier New', monospace;
+    color: var(--dim);
+  }
+  .model-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--purple); flex-shrink: 0; }
+
+  /* ── FEATURES ── */
+  .features-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: 1.25rem;
+  }
+
+  .feature-card {
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 1.5rem;
+    transition: all 0.3s;
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  .feature-card.visible { animation: cardreveal 0.4s ease forwards; }
+  .feature-card:hover {
+    border-color: rgba(139,92,246,0.3);
+    transform: translateY(-2px);
+    box-shadow: 0 8px 24px rgba(0,0,0,0.3);
+  }
+
+  .fc-icon { font-size: 1.75rem; margin-bottom: 0.75rem; }
+  .fc-title { font-size: 0.95rem; font-weight: 600; margin-bottom: 0.5rem; }
+  .fc-desc  { font-size: 0.82rem; color: var(--muted); line-height: 1.6; }
+
+  /* ── CODE BLOCKS ── */
+  .code-block {
+    background: #0d1117;
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 1.5rem;
+    overflow-x: auto;
+    margin: 1.5rem 0;
+    position: relative;
+  }
+  .code-label {
+    position: absolute;
+    top: 0.75rem; right: 1rem;
+    font-size: 0.65rem;
+    color: var(--dim);
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+  }
+  pre {
+    font-family: 'Courier New', Consolas, monospace;
+    font-size: 0.82rem;
+    line-height: 1.7;
+    color: #e2e8f0;
+  }
+  .kw  { color: #c084fc; }  /* keywords */
+  .fn  { color: #67e8f9; }  /* functions */
+  .str { color: #86efac; }  /* strings */
+  .cm  { color: #4b5563; }  /* comments */
+  .num { color: #fbbf24; }  /* numbers */
+
+  /* ── TIMELINE ── */
+  .timeline {
+    position: relative;
+    padding-left: 2rem;
+  }
+  .timeline::before {
+    content: '';
+    position: absolute;
+    left: 0; top: 0; bottom: 0;
+    width: 2px;
+    background: linear-gradient(to bottom, var(--purple), var(--blue), var(--green));
+  }
+  .timeline-item {
+    position: relative;
+    padding-bottom: 2rem;
+    padding-left: 1.5rem;
+  }
+  .timeline-item::before {
+    content: '';
+    position: absolute;
+    left: -2.4rem; top: 6px;
+    width: 12px; height: 12px;
+    border-radius: 50%;
+    background: var(--bg);
+    border: 2px solid var(--purple);
+    box-shadow: 0 0 8px rgba(139,92,246,0.5);
+  }
+  .tl-label  { font-size: 0.7rem; color: var(--purple); font-weight: 600; text-transform: uppercase; letter-spacing: 0.1em; margin-bottom: 0.25rem; }
+  .tl-title  { font-size: 1rem; font-weight: 600; margin-bottom: 0.5rem; }
+  .tl-desc   { font-size: 0.85rem; color: var(--muted); line-height: 1.6; }
+
+  /* ── FOOTER ── */
+  footer {
+    text-align: center;
+    padding: 3rem 2rem;
+    border-top: 1px solid var(--border);
+    color: var(--dim);
+    font-size: 0.8rem;
+  }
+  .footer-logo {
+    font-size: 1.5rem;
+    font-weight: 800;
+    background: linear-gradient(135deg, var(--purple), var(--blue));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    margin-bottom: 0.5rem;
+  }
+
+  /* ── MISC ── */
+  .divider {
+    height: 1px;
+    background: linear-gradient(90deg, transparent, var(--border), transparent);
+    margin: 0;
+  }
+
+  .highlight-box {
+    background: rgba(139,92,246,0.07);
+    border: 1px solid rgba(139,92,246,0.2);
+    border-radius: 12px;
+    padding: 1.25rem 1.5rem;
+    margin: 1.5rem 0;
+    font-size: 0.9rem;
+    color: var(--muted);
+    line-height: 1.7;
+  }
+  .highlight-box strong { color: var(--text); }
+
+  .two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 2rem; }
+  @media (max-width: 700px) { .two-col { grid-template-columns: 1fr; } }
+
+  /* ── ANIMATED NUMBER COUNTER ── */
+  .counter { display: inline-block; }
+
+  /* Responsive */
+  @media (max-width: 600px) {
+    section { padding: 3rem 0; }
+    .flow-connector { display: none; }
+    .flow-steps { gap: 1.5rem; }
+  }
+</style>
+</head>
+<body>
+
+<!-- ═══════════════════════════════════════════════════════ HERO -->
+<div class="hero">
+  <div class="hero-bg"></div>
+  <div class="hero-grid"></div>
+  <div class="hero-content">
+    <div class="hero-badge">
+      <div class="badge-dot"></div>
+      Technical Report · Ver 02 · April 2026
+    </div>
+    <h1>Excel AI Mapper</h1>
+    <p class="hero-sub">
+      Έξυπνη αναγνώριση δομής Excel αρχείων μέσω AI — αυτόματη ανίχνευση κεφαλίδων, εξαγωγή δεδομένων και φυσική γλώσσα αναζήτηση σε πολλά αρχεία ταυτόχρονα.
+    </p>
+    <div class="hero-stats">
+      <div class="stat"><span class="stat-num" data-target="10">0</span><span class="stat-label">Free AI Models</span></div>
+      <div class="stat"><span class="stat-num" data-target="3">0</span><span class="stat-label">AI Providers</span></div>
+      <div class="stat"><span class="stat-num" data-target="4">0</span><span class="stat-label">API Endpoints</span></div>
+      <div class="stat"><span class="stat-num" data-target="100">0</span><span class="stat-label">% Client-side Parse</span></div>
+    </div>
+  </div>
+  <div class="scroll-hint">
+    <span>Scroll</span>
+    <div class="scroll-arrow"></div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════ ARCHITECTURE -->
+<section>
+  <div class="container">
+    <div class="section-label">System Design</div>
+    <h2>Αρχιτεκτονική Συστήματος</h2>
+    <p class="section-desc">
+      Διαχωρισμός σε δύο επίπεδα: <strong>client</strong> που χειρίζεται ολόκληρη την ανάγνωση αρχείων και το UI, και <strong>server</strong> που λειτουργεί αποκλειστικά ως proxy στα AI APIs χωρίς να αγγίζει ποτέ τα αρχεία του χρήστη.
+    </p>
+
+    <div class="arch-diagram">
+      <div class="arch-layers">
+
+        <!-- User -->
+        <div class="arch-layer">
+          <div class="arch-layer-label">USER</div>
+          <div class="arch-boxes">
+            <div class="arch-box green">
+              <div class="arch-box-icon">🧑‍💻</div>
+              <div class="arch-box-name">Browser</div>
+              <div class="arch-box-tech">Drag &amp; Drop · File Picker · Folder Picker</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Arrow -->
+        <div class="arch-arrow">
+          <div class="arch-arrow-line">
+            <div class="arch-arrow-vert"></div>
+            <div class="arch-arrow-head"></div>
+          </div>
+        </div>
+
+        <!-- Frontend -->
+        <div class="arch-layer">
+          <div class="arch-layer-label">FRONTEND</div>
+          <div class="arch-boxes">
+            <div class="arch-box blue">
+              <div class="arch-box-icon">⚛️</div>
+              <div class="arch-box-name">React 18 + Vite</div>
+              <div class="arch-box-tech">FileUpload · SheetViewer · DataSearch</div>
+            </div>
+            <div class="arch-box blue">
+              <div class="arch-box-icon">📊</div>
+              <div class="arch-box-name">SheetJS Parser</div>
+              <div class="arch-box-tech">Client-side · Styles · bgColor · Bold</div>
+            </div>
+            <div class="arch-box blue">
+              <div class="arch-box-icon">💾</div>
+              <div class="arch-box-name">IndexedDB</div>
+              <div class="arch-box-tech">File Handle Persistence · Session Restore</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Arrow -->
+        <div class="arch-arrow">
+          <div class="arch-arrow-line">
+            <div class="arch-arrow-vert"></div>
+            <div class="arch-arrow-head"></div>
+          </div>
+        </div>
+
+        <!-- Backend -->
+        <div class="arch-layer">
+          <div class="arch-layer-label">BACKEND</div>
+          <div class="arch-boxes">
+            <div class="arch-box purple">
+              <div class="arch-box-icon">🚀</div>
+              <div class="arch-box-name">Node.js + Express</div>
+              <div class="arch-box-tech">/analyze · /search · /extract · /corrections</div>
+            </div>
+            <div class="arch-box purple">
+              <div class="arch-box-icon">🧠</div>
+              <div class="arch-box-name">AI Fallback Engine</div>
+              <div class="arch-box-tech">OpenAI SDK · Provider Switch · Retry Logic</div>
+            </div>
+            <div class="arch-box purple">
+              <div class="arch-box-icon">📚</div>
+              <div class="arch-box-name">Few-shot Memory</div>
+              <div class="arch-box-tech">corrections.json · Max 50 · Top 5 in prompt</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Arrow -->
+        <div class="arch-arrow">
+          <div class="arch-arrow-line">
+            <div class="arch-arrow-vert"></div>
+            <div class="arch-arrow-head"></div>
+          </div>
+        </div>
+
+        <!-- AI Providers -->
+        <div class="arch-layer">
+          <div class="arch-layer-label">AI APIs</div>
+          <div class="arch-boxes">
+            <div class="arch-box amber">
+              <div class="arch-box-icon">🔀</div>
+              <div class="arch-box-name">OpenRouter</div>
+              <div class="arch-box-tech">10 δωρεάν μοντέλα · Gemma, LLaMA, GPT-OSS</div>
+            </div>
+            <div class="arch-box amber">
+              <div class="arch-box-icon">✨</div>
+              <div class="arch-box-name">Google Gemini</div>
+              <div class="arch-box-tech">2.5 Pro · 2.5 Flash · 2.0 Flash · Lite</div>
+            </div>
+            <div class="arch-box amber">
+              <div class="arch-box-icon">🖥️</div>
+              <div class="arch-box-name">Ollama (Local)</div>
+              <div class="arch-box-tech">qwen2.5:14b · Εντελώς offline · No API key</div>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════════════════════════════════════════════ DATA FLOW -->
+<section>
+  <div class="container">
+    <div class="section-label">Process Flow</div>
+    <h2>Ροή Δεδομένων</h2>
+    <p class="section-desc">
+      Από το αρχείο Excel μέχρι το δομημένο JSON — 6 βήματα με χαμηλό latency χάρη στο client-side parsing.
+    </p>
+
+    <div class="flow-wrap">
+      <div class="flow-steps">
+
+        <div class="flow-step s1">
+          <div class="flow-circle">📁</div>
+          <div class="flow-title">1. Upload</div>
+          <div class="flow-desc">File/Folder picker ή drag &amp; drop. FSA API για recursive subfolder traversal.</div>
+        </div>
+
+        <div class="flow-connector"><div class="flow-line"></div><div class="flow-arrow"></div></div>
+
+        <div class="flow-step s2">
+          <div class="flow-circle">⚙️</div>
+          <div class="flow-title">2. Parse</div>
+          <div class="flow-desc">SheetJS διαβάζει το Excel στον browser. Εξάγει cells με τιμές, χρώματα, bold.</div>
+        </div>
+
+        <div class="flow-connector"><div class="flow-line"></div><div class="flow-arrow"></div></div>
+
+        <div class="flow-step s3">
+          <div class="flow-circle">🔍</div>
+          <div class="flow-title">3. Preview</div>
+          <div class="flow-desc">SheetViewer εμφανίζει τον πίνακα με Excel χρώματα. Sub-table detection.</div>
+        </div>
+
+        <div class="flow-connector"><div class="flow-line"></div><div class="flow-arrow"></div></div>
+
+        <div class="flow-step s4">
+          <div class="flow-circle">🧠</div>
+          <div class="flow-title">4. Analyze</div>
+          <div class="flow-desc">AI εντοπίζει headers &amp; dataStartRow. Fallback σε heuristic αν αποτύχει.</div>
+        </div>
+
+        <div class="flow-connector"><div class="flow-line"></div><div class="flow-arrow"></div></div>
+
+        <div class="flow-step s5">
+          <div class="flow-circle">🔎</div>
+          <div class="flow-title">5. Search</div>
+          <div class="flow-desc">Keyword pre-filter → AI απαντά σε φυσική γλώσσα. Χωρίς όριο γραμμών.</div>
+        </div>
+
+        <div class="flow-connector"><div class="flow-line"></div><div class="flow-arrow"></div></div>
+
+        <div class="flow-step s6">
+          <div class="flow-circle">📤</div>
+          <div class="flow-title">6. Export</div>
+          <div class="flow-desc">DataExtract εξάγει σε JSON ή CSV. fieldNames επεξεργάσιμα inline.</div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════════════════════════════════════════════ TECH STACK -->
+<section>
+  <div class="container">
+    <div class="section-label">Technology Choices</div>
+    <h2>Tech Stack — Γιατί αυτές οι τεχνολογίες;</h2>
+    <p class="section-desc">
+      Κάθε επιλογή έχει συγκεκριμένο λόγο. Δεν υπάρχει τίποτα "default" εδώ.
+    </p>
+
+    <div class="tech-grid">
+
+      <!-- React 18 -->
+      <div class="tech-card">
+        <div class="tc-header">
+          <div class="tc-icon" style="background:rgba(6,182,212,0.15)">⚛️</div>
+          <div>
+            <div class="tc-title">React 18</div>
+            <div class="tc-version">v18.3.1</div>
+          </div>
+        </div>
+        <div class="tc-why">
+          Η εφαρμογή διαχειρίζεται <strong>πολύπλοκο, δυναμικό state</strong>: πολλά αρχεία, πολλά sheets, αναλύσεις ανά αρχείο/sheet, loading states, corrections. Το React component model + useState/useCallback κάνουν αυτόν τον συντονισμό χειριστό. Concurrent features δεν χρειάζονται ακόμα, αλλά η βάση είναι εκεί.
+        </div>
+        <div class="tc-tags">
+          <span class="tag tag-cyan">Component State</span>
+          <span class="tag tag-blue">useCallback memoization</span>
+          <span class="tag tag-purple">Concurrent Ready</span>
+        </div>
+      </div>
+
+      <!-- Vite -->
+      <div class="tech-card">
+        <div class="tc-header">
+          <div class="tc-icon" style="background:rgba(245,158,11,0.15)">⚡</div>
+          <div>
+            <div class="tc-title">Vite 5</div>
+            <div class="tc-version">v5.3.1</div>
+          </div>
+        </div>
+        <div class="tc-why">
+          <strong>HMR σε &lt;50ms</strong> κατά το development — κρίσιμο όταν κάνεις fine-tuning UI. Το @e965/xlsx είναι βαρύ package (~1MB). Το Vite χειρίζεται αυτόματα το code splitting και tree-shaking, κρατώντας το bundle μικρό. Το Webpack θα ήταν πολύ πιο αργό στο dev.
+        </div>
+        <div class="tc-tags">
+          <span class="tag tag-amber">Instant HMR</span>
+          <span class="tag tag-green">ESM Native</span>
+          <span class="tag tag-blue">Tree Shaking</span>
+        </div>
+      </div>
+
+      <!-- Tailwind -->
+      <div class="tech-card">
+        <div class="tc-header">
+          <div class="tc-icon" style="background:rgba(6,182,212,0.15)">🎨</div>
+          <div>
+            <div class="tc-title">Tailwind CSS 3</div>
+            <div class="tc-version">v3.4.4</div>
+          </div>
+        </div>
+        <div class="tc-why">
+          Το UI έχει πολλές <strong>conditional styles</strong> (αρχείο ενεργό/ανενεργό, loading/done, header/data row). Με Tailwind αυτά γράφονται inline στο JSX ως template literals χωρίς να χρειαστεί ξεχωριστό CSS file. JIT compiler = μηδενικό unused CSS στο production.
+        </div>
+        <div class="tc-tags">
+          <span class="tag tag-cyan">Utility First</span>
+          <span class="tag tag-green">JIT Compiler</span>
+          <span class="tag tag-purple">Zero Runtime</span>
+        </div>
+      </div>
+
+      <!-- SheetJS -->
+      <div class="tech-card">
+        <div class="tc-header">
+          <div class="tc-icon" style="background:rgba(16,185,129,0.15)">📊</div>
+          <div>
+            <div class="tc-title">@e965/xlsx (SheetJS fork)</div>
+            <div class="tc-version">v0.20.3</div>
+          </div>
+        </div>
+        <div class="tc-why">
+          Η επίσημη SheetJS <strong>αφαίρεσε τη δωρεάν πρόσβαση στα cell styles</strong> (bgColor, bold) στις νέες εκδόσεις. Το @e965/xlsx είναι community fork που τα διατηρεί. Αυτά τα styles είναι <em>κρίσιμα</em> — το AI τα χρησιμοποιεί για να εντοπίσει header rows (πολύχρωμες επικεφαλίδες).
+        </div>
+        <div class="tc-tags">
+          <span class="tag tag-green">Cell Styles</span>
+          <span class="tag tag-amber">bgColor Support</span>
+          <span class="tag tag-blue">Client-side</span>
+          <span class="tag tag-red">Fork (ιδιαίτερη επιλογή)</span>
+        </div>
+      </div>
+
+      <!-- Node.js + Express -->
+      <div class="tech-card">
+        <div class="tc-header">
+          <div class="tc-icon" style="background:rgba(16,185,129,0.15)">🚀</div>
+          <div>
+            <div class="tc-title">Node.js + Express</div>
+            <div class="tc-version">Express 4.x</div>
+          </div>
+        </div>
+        <div class="tc-why">
+          Ο server δεν κάνει <strong>τίποτα άλλο</strong> εκτός από HTTP proxy στα AI APIs + αποθήκευση corrections. I/O-bound workload = Node.js ιδανικό. Express = minimal overhead. Δεν χρειάζεται database, ORMs, ή complex middleware — γι' αυτό δεν επιλέχθηκε Nest.js ή Fastify.
+        </div>
+        <div class="tc-tags">
+          <span class="tag tag-green">Minimal Overhead</span>
+          <span class="tag tag-blue">I/O Optimized</span>
+          <span class="tag tag-cyan">AI Proxy</span>
+        </div>
+      </div>
+
+      <!-- OpenAI SDK -->
+      <div class="tech-card">
+        <div class="tc-header">
+          <div class="tc-icon" style="background:rgba(139,92,246,0.15)">🔌</div>
+          <div>
+            <div class="tc-title">OpenAI Node SDK</div>
+            <div class="tc-version">Για και τους 3 providers</div>
+          </div>
+        </div>
+        <div class="tc-why">
+          OpenRouter, Gemini και Ollama <strong>υλοποιούν όλοι το OpenAI Chat Completions API</strong>. Ένα SDK, τρεις providers — αλλάζει μόνο το baseURL και το apiKey. Αυτό εξαλείφει τρία διαφορετικά SDKs και απλοποιεί δραστικά τη λογική fallback.
+        </div>
+        <div class="tc-tags">
+          <span class="tag tag-purple">Provider Agnostic</span>
+          <span class="tag tag-blue">One SDK</span>
+          <span class="tag tag-green">baseURL Switch</span>
+        </div>
+      </div>
+
+      <!-- File System Access API -->
+      <div class="tech-card">
+        <div class="tc-header">
+          <div class="tc-icon" style="background:rgba(59,130,246,0.15)">📂</div>
+          <div>
+            <div class="tc-title">File System Access API</div>
+            <div class="tc-version">showOpenFilePicker · showDirectoryPicker</div>
+          </div>
+        </div>
+        <div class="tc-why">
+          Η FSA API δίνει <strong>persistent file handles</strong> — αποθηκεύονται στο IndexedDB και ξαναφορτώνουν τα αρχεία αυτόματα στην επόμενη συνεδρία. Επίσης, το <code>showDirectoryPicker</code> επιτρέπει recursive traversal υποφακέλων που είναι αδύνατο με το κλασσικό <code>&lt;input type=file&gt;</code>. Legacy fallback με webkitdirectory για Firefox/Safari.
+        </div>
+        <div class="tc-tags">
+          <span class="tag tag-blue">Persistent Handles</span>
+          <span class="tag tag-purple">IndexedDB</span>
+          <span class="tag tag-green">Recursive Dirs</span>
+          <span class="tag tag-amber">Legacy Fallback</span>
+        </div>
+      </div>
+
+      <!-- IndexedDB -->
+      <div class="tech-card">
+        <div class="tc-header">
+          <div class="tc-icon" style="background:rgba(245,158,11,0.15)">🗄️</div>
+          <div>
+            <div class="tc-title">IndexedDB (fileHandleStore)</div>
+            <div class="tc-version">fileHandleStore.js</div>
+          </div>
+        </div>
+        <div class="tc-why">
+          Τα <strong>File System Access Handles δεν σώζονται στο localStorage</strong> — είναι objects, όχι strings. Το IndexedDB είναι ο μόνος browser storage που μπορεί να τα αποθηκεύσει structured. Αυτό επιτρέπει "session restore": κλείνεις browser, ξανανοίγεις, τα αρχεία επανεμφανίζονται αυτόματα.
+        </div>
+        <div class="tc-tags">
+          <span class="tag tag-amber">Session Restore</span>
+          <span class="tag tag-blue">Structured Objects</span>
+          <span class="tag tag-green">Persistent UI State</span>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════════════════════════════════════════════ API ENDPOINTS -->
+<section>
+  <div class="container">
+    <div class="section-label">Backend API</div>
+    <h2>API Endpoints</h2>
+    <p class="section-desc">
+      4 endpoints — κάθε ένας με διαφορετικό ρόλο στο pipeline. Ο server ποτέ δεν αποθηκεύει Excel αρχεία.
+    </p>
+
+    <div class="endpoints-list">
+
+      <div class="endpoint">
+        <div class="ep-header">
+          <span class="ep-method">POST</span>
+          <span class="ep-path">/api/analyze</span>
+        </div>
+        <div class="ep-desc">
+          Παίρνει τις <strong>πρώτες 30 γραμμές</strong> ενός sheet (με style tags: BG, BOLD) και ρωτά το AI να βρει ποια γραμμή είναι <em>column header</em> και πού αρχίζουν τα δεδομένα. Επιστρέφει <code>{ headerRows, headerRow, dataStartRow, columns }</code>. Αν το AI αποτύχει (parse error, timeout), κάνει fallback στο <strong>heuristic detector</strong> (ψάχνει πρώτη γραμμή με 25%+ αριθμούς).
+        </div>
+        <div class="ep-detail">
+          <div class="ep-detail-item"><div class="ep-detail-dot" style="background:var(--purple)"></div>Few-shot examples από corrections.json</div>
+          <div class="ep-detail-item"><div class="ep-detail-dot" style="background:var(--blue)"></div>Style tags: [BG:4472C4, BOLD]</div>
+          <div class="ep-detail-item"><div class="ep-detail-dot" style="background:var(--green)"></div>Heuristic fallback αν AI αποτύχει</div>
+        </div>
+      </div>
+
+      <div class="endpoint">
+        <div class="ep-header">
+          <span class="ep-method">POST</span>
+          <span class="ep-path">/api/search</span>
+        </div>
+        <div class="ep-desc">
+          Παίρνει ερώτηση φυσικής γλώσσας + πολλά sheets. <strong>Keyword pre-filter</strong>: εξάγει λέξεις-κλειδιά από την ερώτηση (φιλτράρει stopwords), και επιστρέφει μόνο τις γραμμές που τα περιέχουν. <em>Χωρίς όριο γραμμών</em> — το μόνο φρένο είναι 40.000 χαρακτήρες context window. Το AI απαντά πάντα στη γλώσσα της ερώτησης.
+        </div>
+        <div class="ep-detail">
+          <div class="ep-detail-item"><div class="ep-detail-dot" style="background:var(--cyan)"></div>MAX_CHARS = 40.000 (μόνο αυτό σαν όριο)</div>
+          <div class="ep-detail-item"><div class="ep-detail-dot" style="background:var(--amber)"></div>Keyword stopword filter (GR + EN)</div>
+          <div class="ep-detail-item"><div class="ep-detail-dot" style="background:var(--green)"></div>Multi-file, multi-sheet σε μία κλήση</div>
+        </div>
+      </div>
+
+      <div class="endpoint">
+        <div class="ep-header">
+          <span class="ep-method">POST</span>
+          <span class="ep-path">/api/extract</span>
+        </div>
+        <div class="ep-desc">
+          Παίρνει cells + analysis (columns, dataStartRow) και χτίζει array από records. Ξεκινά από <code>dataStartRow</code>, παρακάμπτει εντελώς κενές γραμμές. Επιστρέφει <code>{ records: [{fieldName: value, ...}] }</code> έτοιμο για JSON/CSV export. Κανένα AI call — καθαρό data processing.
+        </div>
+        <div class="ep-detail">
+          <div class="ep-detail-item"><div class="ep-detail-dot" style="background:var(--green)"></div>Zero AI cost — pure data processing</div>
+          <div class="ep-detail-item"><div class="ep-detail-dot" style="background:var(--blue)"></div>fieldName deduplication (_2, _3...)</div>
+          <div class="ep-detail-item"><div class="ep-detail-dot" style="background:var(--amber)"></div>Κενές γραμμές παρακάμπτονται</div>
+        </div>
+      </div>
+
+      <div class="endpoint">
+        <div class="ep-header">
+          <span class="ep-method">POST</span>
+          <span class="ep-path">/api/corrections</span>
+        </div>
+        <div class="ep-desc">
+          Αποθηκεύει διορθώσεις χρήστη (όταν αλλάζει το dataStartRow). Κρατά τις <strong>τελευταίες 50</strong> στο disk (corrections.json). Οι τελευταίες <strong>5</strong> στέλνονται ως few-shot examples σε κάθε /api/analyze κλήση — έτσι το AI μαθαίνει από τις συνήθειες του χρήστη.
+        </div>
+        <div class="ep-detail">
+          <div class="ep-detail-item"><div class="ep-detail-dot" style="background:var(--purple)"></div>Few-shot learning — max 5 στο prompt</div>
+          <div class="ep-detail-item"><div class="ep-detail-dot" style="background:var(--amber)"></div>Disk persistence — corrections.json</div>
+          <div class="ep-detail-item"><div class="ep-detail-dot" style="background:var(--red)"></div>Rolling window — 50 max, drop oldest</div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════════════════════════════════════════════ AI STRATEGY -->
+<section>
+  <div class="container">
+    <div class="section-label">AI Architecture</div>
+    <h2>Στρατηγική AI Providers</h2>
+    <p class="section-desc">
+      Τρεις εναλλακτικοί providers με ενιαίο interface. Αλλάζεις <code>AI_PROVIDER</code> στο .env και αλλάζει ολόκληρο το backend.
+    </p>
+
+    <div class="ai-strategy">
+
+      <div class="ai-card openrouter">
+        <div class="ai-card-glow"></div>
+        <div class="ai-card-icon">🔀</div>
+        <div class="ai-card-name">OpenRouter</div>
+        <div class="ai-card-sub">Default Provider · 100% Δωρεάν</div>
+        <div class="ai-card-desc">
+          10 μοντέλα σε σειρά προτεραιότητας. Αν το πρώτο επιστρέψει 429, 404 ή κενή απάντηση, δοκιμάζεται αυτόματα το επόμενο. Retry-after header γίνεται σεβαστό. Αν εξαντληθούν όλα, επιστρέφει 429 στο frontend.
+        </div>
+        <div class="model-list">
+          <div class="model-item"><div class="model-dot"></div>google/gemma-3-27b-it:free</div>
+          <div class="model-item"><div class="model-dot"></div>meta-llama/llama-3.3-70b-instruct:free</div>
+          <div class="model-item"><div class="model-dot"></div>openai/gpt-oss-120b:free</div>
+          <div class="model-item"><div class="model-dot" style="background:var(--dim)"></div>+ 7 ακόμα fallback models...</div>
+        </div>
+      </div>
+
+      <div class="ai-card gemini">
+        <div class="ai-card-glow"></div>
+        <div class="ai-card-icon">✨</div>
+        <div class="ai-card-name">Google Gemini</div>
+        <div class="ai-card-sub">AI_PROVIDER=gemini</div>
+        <div class="ai-card-desc">
+          4 μοντέλα από το καλύτερο στο πιο ελαφρύ. Χρησιμοποιεί το OpenAI-compatible endpoint του Google. Ίδια fallback λογική με το OpenRouter. Ιδανικό για μεγαλύτερα datasets λόγω large context window.
+        </div>
+        <div class="model-list">
+          <div class="model-item"><div class="model-dot" style="background:var(--blue)"></div>gemini-2.5-pro</div>
+          <div class="model-item"><div class="model-dot" style="background:var(--blue)"></div>gemini-2.5-flash</div>
+          <div class="model-item"><div class="model-dot" style="background:var(--blue)"></div>gemini-2.0-flash</div>
+          <div class="model-item"><div class="model-dot" style="background:var(--blue)"></div>gemini-2.0-flash-lite</div>
+        </div>
+      </div>
+
+      <div class="ai-card ollama">
+        <div class="ai-card-glow"></div>
+        <div class="ai-card-icon">🖥️</div>
+        <div class="ai-card-name">Ollama</div>
+        <div class="ai-card-sub">AI_PROVIDER=ollama · Offline</div>
+        <div class="ai-card-desc">
+          Εντελώς τοπικό — κανένα δεδομένο φεύγει από τον υπολογιστή. Διαφορετικά μοντέλα για analyze (βαρύτερο) και search (ελαφρύτερο). Αν το Ollama δεν τρέχει, δίνει ελληνικό μήνυμα λάθους με 503.
+        </div>
+        <div class="model-list">
+          <div class="model-item"><div class="model-dot" style="background:var(--green)"></div>OLLAMA_MODEL_ANALYZE=qwen2.5:14b</div>
+          <div class="model-item"><div class="model-dot" style="background:var(--green)"></div>OLLAMA_MODEL_SEARCH=qwen2.5:14b</div>
+          <div class="model-item"><div class="model-dot" style="background:var(--green)"></div>Πλήρης data privacy</div>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- Fallback Logic Code -->
+    <div class="code-block" style="margin-top:2rem">
+      <div class="code-label">server/index.js — Fallback Engine</div>
+      <pre><span class="kw">async function</span> <span class="fn">generateWithOpenRouter</span>(prompt) {
+  <span class="kw">let</span> lastErr;
+  <span class="kw">for</span> (<span class="kw">const</span> model <span class="kw">of</span> FREE_MODELS) {       <span class="cm">// 10 models σε σειρά</span>
+    <span class="kw">try</span> {
+      <span class="kw">const</span> response = <span class="kw">await</span> openrouterClient.chat.completions.<span class="fn">create</span>({ model, ... });
+      <span class="kw">const</span> content = response.choices?.[<span class="num">0</span>]?.message?.content;
+      <span class="kw">if</span> (!content) { console.<span class="fn">warn</span>(<span class="str">`${model} empty, trying next...`</span>); <span class="kw">continue</span>; }
+      <span class="kw">return</span> content;                         <span class="cm">// ✓ επιτυχία</span>
+    } <span class="kw">catch</span> (err) {
+      <span class="kw">const</span> { isRetryable, isRateLimit } = <span class="fn">classifyOpenRouterError</span>(err);
+      <span class="kw">if</span> (isRateLimit) <span class="kw">await</span> <span class="fn">sleep</span>(retryAfterMs); <span class="cm">// σεβαστός retry-after</span>
+      <span class="kw">if</span> (!isRetryable) <span class="kw">throw</span> err;              <span class="cm">// non-retryable: σταματά αμέσως</span>
+      lastErr = err;                               <span class="cm">// retryable: επόμενο model</span>
+    }
+  }
+  <span class="kw">throw</span> finalErr;                              <span class="cm">// εξαντλήθηκαν όλα → 429</span>
+}</pre>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════════════════════════════════════════════ KEY FEATURES -->
+<section>
+  <div class="container">
+    <div class="section-label">Core Features</div>
+    <h2>Βασικές Λειτουργίες</h2>
+    <p class="section-desc">
+      Οι σημαντικότερες τεχνικές καινοτομίες του project.
+    </p>
+
+    <div class="features-grid">
+
+      <div class="feature-card">
+        <div class="fc-icon">🎨</div>
+        <div class="fc-title">Style-Aware Header Detection</div>
+        <div class="fc-desc">
+          Το AI δέχεται style annotations: <code>[BG:4472C4, BOLD]</code> ανά γραμμή. Η πολύχρωμη επικεφαλίδα είναι το ισχυρότερο signal. Χωρίς αυτό, η ανίχνευση header σε αρχεία με title rows θα ήταν πολύ ανακριβής.
+        </div>
+      </div>
+
+      <div class="feature-card">
+        <div class="fc-icon">🔄</div>
+        <div class="fc-title">Heuristic Fallback (χωρίς AI)</div>
+        <div class="fc-desc">
+          Αν το AI αποτύχει, το <code>detectStructure()</code> ψάχνει την πρώτη γραμμή με 25%+ αριθμητικά κελιά. Αυτή είναι σχεδόν πάντα η πρώτη γραμμή δεδομένων. Zero latency, zero API cost, ~80% ακρίβεια.
+        </div>
+      </div>
+
+      <div class="feature-card">
+        <div class="fc-icon">📚</div>
+        <div class="fc-title">Few-Shot Learning από Διορθώσεις</div>
+        <div class="fc-desc">
+          Κάθε φορά που ο χρήστης διορθώνει το dataStartRow, αποθηκεύεται η διόρθωση. Οι τελευταίες 5 στέλνονται ως παραδείγματα στο AI prompt. Το AI "μαθαίνει" τις συνήθειες του χρήστη χωρίς fine-tuning.
+        </div>
+      </div>
+
+      <div class="feature-card">
+        <div class="fc-icon">🔍</div>
+        <div class="fc-title">Keyword Pre-Filter (χωρίς όριο γραμμών)</div>
+        <div class="fc-desc">
+          Αντί να στέλνει ΟΛΑ τα δεδομένα στο AI, φιλτράρει πρώτα τις γραμμές που περιέχουν keywords. Αφαιρεί stopwords (GR+EN). Το μόνο όριο είναι 40.000 χαρακτήρες — ψάχνει κυριολεκτικά σε εκατοντάδες χιλιάδες γραμμές.
+        </div>
+      </div>
+
+      <div class="feature-card">
+        <div class="fc-icon">📂</div>
+        <div class="fc-title">Recursive Folder Loading</div>
+        <div class="fc-desc">
+          Async generator <code>walkDirectory()</code> διατρέχει αναδρομικά υποφακέλους απεριόριστου βάθους. Counter UI "3 / 12 αρχεία" ενημερώνεται live. Drag &amp; drop φακέλου επίσης υποστηρίζεται μέσω FSA API.
+        </div>
+      </div>
+
+      <div class="feature-card">
+        <div class="fc-icon">📋</div>
+        <div class="fc-title">Sub-Table Detection</div>
+        <div class="fc-desc">
+          Αν ένα sheet περιέχει πολλούς ξεχωριστούς πίνακες (χωρισμένους με κενές γραμμές), το <code>detectSubTables()</code> τους εντοπίζει. Ο χρήστης επιλέγει ποιον να αναλύσει. Κάθε υποπίνακας αναλύεται ανεξάρτητα.
+        </div>
+      </div>
+
+      <div class="feature-card">
+        <div class="fc-icon">💾</div>
+        <div class="fc-title">Session Persistence</div>
+        <div class="fc-desc">
+          Τα file handles αποθηκεύονται στο IndexedDB. Την επόμενη φορά που ανοίγεις την εφαρμογή, εμφανίζεται banner "Βρέθηκαν X αρχεία από προηγούμενη συνεδρία". Ένα κλικ και ξαναφορτώνουν χωρίς να χρειαστεί ξανά file picker.
+        </div>
+      </div>
+
+      <div class="feature-card">
+        <div class="fc-icon">✏️</div>
+        <div class="fc-title">Inline Field Name Editing</div>
+        <div class="fc-desc">
+          Κάθε στήλη έχει <code>fieldName</code> (key στο JSON export) και <code>header</code> (original Excel τίτλος). Το fieldName είναι editable inline — hover → εμφανίζεται edit icon → click → input field → Enter ή ✓ για αποθήκευση.
+        </div>
+      </div>
+
+      <div class="feature-card">
+        <div class="fc-icon">⚡</div>
+        <div class="fc-title">Rate Limit Handling</div>
+        <div class="fc-desc">
+          Αν όλα τα μοντέλα επιστρέψουν 429, το frontend εμφανίζει countdown 65 δευτερολέπτων ("Επανάληψη σε 45s…") και επαναλαμβάνει αυτόματα. Ο χρήστης βλέπει live countdown χωρίς να κάνει τίποτα.
+        </div>
+      </div>
+
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════════════════════════════════════════════ KEY ALGORITHMS -->
+<section>
+  <div class="container">
+    <div class="section-label">Algorithms</div>
+    <h2>Βασικοί Αλγόριθμοι</h2>
+    <p class="section-desc">
+      Οι πιο ενδιαφέρουσες τεχνικές υλοποιήσεις.
+    </p>
+
+    <div class="two-col">
+
+      <div>
+        <h3 style="font-size:1rem; font-weight:600; margin-bottom:1rem; color:var(--cyan)">
+          🌲 Recursive Directory Traversal
+        </h3>
+        <div class="code-block" style="margin:0">
+          <div class="code-label">FileUpload.jsx</div>
+          <pre><span class="kw">async function</span>* <span class="fn">walkDirectory</span>(dirHandle) {
+  <span class="kw">for await</span> (<span class="kw">const</span> [name, handle] <span class="kw">of</span>
+              dirHandle.<span class="fn">entries</span>()) {
+    <span class="kw">if</span> (handle.kind === <span class="str">"file"</span>) {
+      <span class="kw">const</span> ext = name.<span class="fn">split</span>(<span class="str">"."</span>).<span class="fn">pop</span>()
+                       .<span class="fn">toLowerCase</span>();
+      <span class="kw">if</span> (EXCEL_EXTS.<span class="fn">has</span>(ext)) <span class="kw">yield</span> handle;
+    } <span class="kw">else if</span> (handle.kind === <span class="str">"directory"</span>) {
+      <span class="kw">yield</span>* <span class="fn">walkDirectory</span>(handle); <span class="cm">// αναδρομή</span>
+    }
+  }
+}</pre>
+        </div>
+        <p style="font-size:0.8rem;color:var(--dim);margin-top:0.75rem;">
+          Async generator = lazy evaluation. Δεν φορτώνει όλα τα handles στη μνήμη ταυτόχρονα. Απεριόριστο βάθος υποφακέλων.
+        </p>
+      </div>
+
+      <div>
+        <h3 style="font-size:1rem; font-weight:600; margin-bottom:1rem; color:var(--amber)">
+          🧮 Heuristic Structure Detection
+        </h3>
+        <div class="code-block" style="margin:0">
+          <div class="code-label">server/index.js</div>
+          <pre><span class="kw">function</span> <span class="fn">findDataStartByNumeric</span>(cells, max) {
+  <span class="kw">for</span> (<span class="kw">let</span> i = <span class="num">0</span>; i < max; i++) {
+    <span class="kw">const</span> nonEmpty = cells[i].<span class="fn">filter</span>(
+      c => <span class="fn">cellVal</span>(c) !== <span class="str">""</span>);
+    <span class="kw">if</span> (!nonEmpty.length) <span class="kw">continue</span>;
+    <span class="kw">const</span> numeric = nonEmpty.<span class="fn">filter</span>(
+      c => <span class="kw">typeof</span> c.value === <span class="str">"number"</span>);
+    <span class="cm">// 25%+ αριθμοί = γραμμή δεδομένων</span>
+    <span class="kw">if</span> (numeric.length >= <span class="fn">Math.ceil</span>(
+          nonEmpty.length * <span class="num">0.25</span>))
+      <span class="kw">return</span> i;
+  }
+  <span class="kw">return null</span>;
+}</pre>
+        </div>
+        <p style="font-size:0.8rem;color:var(--dim);margin-top:0.75rem;">
+          Το 25% threshold είναι εμπειρικό — αρκετά χαμηλό για sparse data, αρκετά ψηλό για να αγνοεί metadata rows.
+        </p>
+      </div>
+
+    </div>
+
+    <div style="margin-top:2rem">
+      <h3 style="font-size:1rem; font-weight:600; margin-bottom:1rem; color:var(--green)">
+        🔍 Keyword Pre-Filter για Search
+      </h3>
+      <div class="code-block">
+        <div class="code-label">server/index.js — filterRelevantRows()</div>
+        <pre><span class="kw">function</span> <span class="fn">filterRelevantRows</span>(cells, question) {
+  <span class="kw">const</span> stopWords = <span class="kw">new</span> <span class="fn">Set</span>([<span class="str">"το"</span>, <span class="str">"τα"</span>, <span class="str">"και"</span>, <span class="str">"the"</span>, <span class="str">"and"</span>, <span class="cm">/* ... */</span>]);
+  <span class="kw">const</span> keywords = question.<span class="fn">toLowerCase</span>()
+    .<span class="fn">split</span>(<span class="str">/[\s,;:.!?()\[\]]+/</span>)
+    .<span class="fn">filter</span>(w => w.length > <span class="num">2</span> && !stopWords.<span class="fn">has</span>(w));
+
+  <span class="kw">if</span> (keywords.length === <span class="num">0</span>)
+    <span class="kw">return</span> cells.<span class="fn">map</span>((row, idx) => ({ idx, row })); <span class="cm">// όλες οι γραμμές</span>
+
+  <span class="kw">return</span> cells.<span class="fn">flatMap</span>((row, i) => {
+    <span class="kw">const</span> text = row.<span class="fn">map</span>(c => String(c.formattedValue || <span class="str">""</span>))
+                    .<span class="fn">join</span>(<span class="str">" "</span>).<span class="fn">toLowerCase</span>();
+    <span class="kw">return</span> keywords.<span class="fn">some</span>(kw => text.<span class="fn">includes</span>(kw))
+      ? [{ idx: i, row }] : [];      <span class="cm">// χωρίς όριο γραμμών</span>
+  });
+}</pre>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════════════════════════════════════════════ FILE STRUCTURE -->
+<section>
+  <div class="container">
+    <div class="section-label">Project Structure</div>
+    <h2>Δομή Project</h2>
+    <p class="section-desc">
+      Ξεκάθαρος διαχωρισμός client / server. Κάθε αρχείο έχει έναν και μόνο ρόλο.
+    </p>
+
+    <div class="two-col">
+      <div>
+        <h3 style="font-size:0.85rem;font-weight:600;color:var(--blue);margin-bottom:1rem;text-transform:uppercase;letter-spacing:0.1em;">📁 client/src/</h3>
+        <div style="display:flex;flex-direction:column;gap:0.5rem">
+          <div class="highlight-box" style="margin:0;padding:0.75rem 1rem">
+            <code style="color:var(--cyan);font-size:0.8rem">App.jsx</code>
+            <span style="color:var(--dim);font-size:0.75rem;margin-left:0.75rem">Root state — files[], analyses{}, activeFileIdx</span>
+          </div>
+          <div class="highlight-box" style="margin:0;padding:0.75rem 1rem">
+            <code style="color:var(--cyan);font-size:0.8rem">parseExcel.js</code>
+            <span style="color:var(--dim);font-size:0.75rem;margin-left:0.75rem">SheetJS parser — cells με value/bgColor/bold</span>
+          </div>
+          <div class="highlight-box" style="margin:0;padding:0.75rem 1rem">
+            <code style="color:var(--cyan);font-size:0.8rem">fileHandleStore.js</code>
+            <span style="color:var(--dim);font-size:0.75rem;margin-left:0.75rem">IndexedDB CRUD για FSA file handles</span>
+          </div>
+          <div class="highlight-box" style="margin:0;padding:0.75rem 1rem">
+            <code style="color:var(--green);font-size:0.8rem">components/FileUpload.jsx</code>
+            <span style="color:var(--dim);font-size:0.75rem;margin-left:0.75rem">FSA picker + folder + drag&drop + legacy</span>
+          </div>
+          <div class="highlight-box" style="margin:0;padding:0.75rem 1rem">
+            <code style="color:var(--green);font-size:0.8rem">components/SheetViewer.jsx</code>
+            <span style="color:var(--dim);font-size:0.75rem;margin-left:0.75rem">Excel table preview με χρώματα κελιών</span>
+          </div>
+          <div class="highlight-box" style="margin:0;padding:0.75rem 1rem">
+            <code style="color:var(--green);font-size:0.8rem">components/AnalysisPanel.jsx</code>
+            <span style="color:var(--dim);font-size:0.75rem;margin-left:0.75rem">AI ανάλυση + sub-tables + inline edit</span>
+          </div>
+          <div class="highlight-box" style="margin:0;padding:0.75rem 1rem">
+            <code style="color:var(--green);font-size:0.8rem">components/DataSearch.jsx</code>
+            <span style="color:var(--dim);font-size:0.75rem;margin-left:0.75rem">Chat UI — multi-file selector + AI Q&A</span>
+          </div>
+          <div class="highlight-box" style="margin:0;padding:0.75rem 1rem">
+            <code style="color:var(--green);font-size:0.8rem">components/DataExtract.jsx</code>
+            <span style="color:var(--dim);font-size:0.75rem;margin-left:0.75rem">JSON/CSV export με fieldName mapping</span>
+          </div>
+        </div>
+      </div>
+      <div>
+        <h3 style="font-size:0.85rem;font-weight:600;color:var(--purple);margin-bottom:1rem;text-transform:uppercase;letter-spacing:0.1em;">📁 server/</h3>
+        <div style="display:flex;flex-direction:column;gap:0.5rem">
+          <div class="highlight-box" style="margin:0;padding:0.75rem 1rem">
+            <code style="color:var(--cyan);font-size:0.8rem">index.js</code>
+            <span style="color:var(--dim);font-size:0.75rem;margin-left:0.75rem">Express server — όλα σε ένα αρχείο</span>
+          </div>
+          <div class="highlight-box" style="margin:0;padding:0.75rem 1rem">
+            <code style="color:var(--amber);font-size:0.8rem">corrections.json</code>
+            <span style="color:var(--dim);font-size:0.75rem;margin-left:0.75rem">Few-shot learning storage (auto-generated)</span>
+          </div>
+          <div class="highlight-box" style="margin:0;padding:0.75rem 1rem">
+            <code style="color:var(--amber);font-size:0.8rem">.env</code>
+            <span style="color:var(--dim);font-size:0.75rem;margin-left:0.75rem">AI_PROVIDER, API keys, Ollama URL</span>
+          </div>
+        </div>
+
+        <h3 style="font-size:0.85rem;font-weight:600;color:var(--amber);margin-top:1.5rem;margin-bottom:1rem;text-transform:uppercase;letter-spacing:0.1em;">🔧 .env Configuration</h3>
+        <div class="code-block" style="margin:0">
+          <pre><span class="cm"># Provider: openrouter | gemini | ollama</span>
+AI_PROVIDER=openrouter
+
+<span class="cm"># OpenRouter (default — δωρεάν)</span>
+OPENROUTER_API_KEY=sk-or-...
+
+<span class="cm"># Google Gemini</span>
+GEMINI_API_KEY=AIza...
+
+<span class="cm"># Ollama (local)</span>
+OLLAMA_BASE_URL=http://localhost:11434/v1
+OLLAMA_MODEL_ANALYZE=qwen2.5:14b
+OLLAMA_MODEL_SEARCH=qwen2.5:14b</pre>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════════════════════════════════════════════ DEVELOPMENT -->
+<section>
+  <div class="container">
+    <div class="section-label">Development Guide</div>
+    <h2>Εκκίνηση &amp; Development</h2>
+    <p class="section-desc">
+      Δύο ξεχωριστοί servers — client (Vite, port 5173) και backend (Node.js, port 3001).
+    </p>
+
+    <div class="two-col">
+      <div>
+        <h3 style="font-size:0.95rem;font-weight:600;margin-bottom:1rem;color:var(--blue)">Terminal 1 — Client</h3>
+        <div class="code-block" style="margin:0">
+          <pre><span class="cm"># Στον φάκελο client/</span>
+cd client
+npm install
+npm run dev
+
+<span class="cm"># → http://localhost:5173</span></pre>
+        </div>
+      </div>
+      <div>
+        <h3 style="font-size:0.95rem;font-weight:600;margin-bottom:1rem;color:var(--purple)">Terminal 2 — Server</h3>
+        <div class="code-block" style="margin:0">
+          <pre><span class="cm"># Στον φάκελο server/</span>
+cd server
+npm install
+<span class="cm"># Βεβαιώσου ότι έχεις .env με API key</span>
+npm run dev
+
+<span class="cm"># → http://localhost:3001</span></pre>
+        </div>
+      </div>
+    </div>
+
+    <div class="highlight-box">
+      <strong>Σημαντικό:</strong> Το Vite proxies αυτόματα τα <code>/api/*</code> requests στο <code>localhost:3001</code> μέσω του <code>vite.config.js</code>. Δεν χρειάζεται να αλλάξεις URLs στον κώδικα — ο client πάντα κάνει fetch σε relative paths.
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════════════════════════════════════════════ DESIGN DECISIONS -->
+<section>
+  <div class="container">
+    <div class="section-label">Design Decisions</div>
+    <h2>Βασικές Αρχιτεκτονικές Αποφάσεις</h2>
+    <p class="section-desc">
+      Οι επιλογές που δεν είναι προφανείς χωρίς context.
+    </p>
+
+    <div class="timeline">
+
+      <div class="timeline-item">
+        <div class="tl-label">Απόφαση #1</div>
+        <div class="tl-title">Client-side Excel parsing — όχι server</div>
+        <div class="tl-desc">
+          Το Excel parsing γίνεται 100% στον browser με SheetJS. Ο server ποτέ δεν λαμβάνει το αρχείο — μόνο text cells. Αυτό σημαίνει: (α) μηδενικό upload time για μεγάλα αρχεία, (β) privacy by design — τα αρχεία δεν φεύγουν από τον υπολογιστή, (γ) δεν χρειάζεται disk storage στον server.
+        </div>
+      </div>
+
+      <div class="timeline-item">
+        <div class="tl-label">Απόφαση #2</div>
+        <div class="tl-title">Ένα OpenAI SDK για τρεις providers</div>
+        <div class="tl-desc">
+          Αντί για ξεχωριστά SDKs (google-generativeai, ollama-js), όλοι οι providers εκθέτουν OpenAI-compatible endpoint. Ένα SDK, τρία clients με διαφορετικό baseURL. Αυτό σημαίνει zero-cost provider switch και ένα μέρος για fallback logic.
+        </div>
+      </div>
+
+      <div class="timeline-item">
+        <div class="tl-label">Απόφαση #3</div>
+        <div class="tl-title">@e965/xlsx fork αντί για επίσημο SheetJS</div>
+        <div class="tl-desc">
+          Η επίσημη SheetJS κρύβει τα cell styles (bgColor, bold) στις νέες εκδόσεις πίσω από subscription. Το community fork @e965/xlsx τα δίνει δωρεάν. Αυτά τα styles είναι κρίσιμα για ακριβή header detection — χωρίς αυτά θα έπρεπε να βασίζεσαι μόνο στη θέση των κελιών.
+        </div>
+      </div>
+
+      <div class="timeline-item">
+        <div class="tl-label">Απόφαση #4</div>
+        <div class="tl-title">Keyword filter αντί για σταθερό row limit</div>
+        <div class="tl-desc">
+          Αρχικά υπήρχε σταθερό όριο 60 γραμμών ανά sheet. Αντικαταστάθηκε με keyword pre-filter που αφαιρεί άσχετες γραμμές. Έτσι 10.000 γραμμές → ίσως 50 relevant → στο AI. Το αποτέλεσμα είναι ταυτόχρονα πιο ακριβές (λιγότερος θόρυβος) και πιο πλήρες (καμία γραμμή χάνεται).
+        </div>
+      </div>
+
+      <div class="timeline-item">
+        <div class="tl-label">Απόφαση #5</div>
+        <div class="tl-title">IndexedDB για file handles — όχι localStorage</div>
+        <div class="tl-desc">
+          Τα FSA File Handles είναι JavaScript objects. Το localStorage αποθηκεύει μόνο strings — δεν μπορεί να serialized ένα FileSystemFileHandle. Το IndexedDB υποστηρίζει structured cloning και είναι ο μόνος τρόπος για persistent handles και session restore.
+        </div>
+      </div>
+
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════════════════════════════════════════════ FOOTER -->
+<footer>
+  <div class="footer-logo">Excel AI Mapper</div>
+  <p style="margin-bottom:0.5rem">Technical Report — Ver 02</p>
+  <p style="color:var(--dim)">
+    React 18 · Vite · Tailwind CSS · @e965/xlsx · Node.js · Express · OpenAI SDK
+    <br>OpenRouter · Google Gemini · Ollama · File System Access API · IndexedDB
+  </p>
+  <p style="margin-top:1rem;color:var(--border)">Generated April 2026</p>
+</footer>
+
+<script>
+// ── Intersection Observer for card reveal animations ──
+const observer = new IntersectionObserver((entries) => {
+  entries.forEach((entry, i) => {
+    if (entry.isIntersecting) {
+      setTimeout(() => entry.target.classList.add('visible'), i * 80);
+      observer.unobserve(entry.target);
+    }
+  });
+}, { threshold: 0.1 });
+
+document.querySelectorAll('.tech-card, .feature-card').forEach(el => observer.observe(el));
+
+// ── Animated number counters ──
+function animateCounter(el, target, duration = 1500) {
+  const start = performance.now();
+  const update = (now) => {
+    const elapsed = now - start;
+    const progress = Math.min(elapsed / duration, 1);
+    const eased = 1 - Math.pow(1 - progress, 3);
+    el.textContent = Math.round(eased * target);
+    if (progress < 1) requestAnimationFrame(update);
+    else el.textContent = target;
+  };
+  requestAnimationFrame(update);
+}
+
+const counterObserver = new IntersectionObserver((entries) => {
+  entries.forEach(entry => {
+    if (entry.isIntersecting) {
+      const el = entry.target;
+      const target = parseInt(el.dataset.target);
+      animateCounter(el, target);
+      counterObserver.unobserve(el);
+    }
+  });
+}, { threshold: 0.5 });
+
+document.querySelectorAll('[data-target]').forEach(el => counterObserver.observe(el));
+</script>
+
+</body>
+</html>
